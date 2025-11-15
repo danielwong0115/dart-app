@@ -20,6 +20,19 @@ export const saveGameToFirestore = async (userId: string, game: Game): Promise<v
         score: shot.score,
       })),
       ...(game.notes && { notes: game.notes }),
+      ...(game.gameMode && { gameMode: game.gameMode }),
+      ...(game.turns && { 
+        turns: game.turns.map(turn => ({
+          shots: turn.shots.map(shot => ({
+            x: shot.x,
+            y: shot.y,
+            score: shot.score,
+          })),
+          turnScore: turn.turnScore,
+          ...(turn.isBust && { isBust: turn.isBust }),
+        }))
+      }),
+      ...(game.startingScore !== undefined && { startingScore: game.startingScore }),
     }
 
     await setDoc(doc(userGamesRef, game.id), storedGame)
@@ -53,6 +66,17 @@ export const loadGamesFromFirestore = async (userId: string): Promise<Game[]> =>
         })),
         totalScore: data.totalScore ?? 0,
         notes: data.notes,
+        gameMode: data.gameMode,
+        turns: data.turns?.map(turn => ({
+          shots: turn.shots.map(shot => ({
+            x: shot.x ?? 0,
+            y: shot.y ?? 0,
+            score: shot.score ?? 0,
+          })),
+          turnScore: turn.turnScore ?? 0,
+          isBust: turn.isBust,
+        })),
+        startingScore: data.startingScore,
       })
     })
     

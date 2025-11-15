@@ -1,7 +1,7 @@
 import type { MouseEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import type { View, Shot, End, Game } from './utils/types'
+import type { View, Shot, End, Game, Turn } from './utils/types'
 import type { PracticeCardProps } from './components/home/PracticeCard'
 import { SHOTS_PER_GAME } from './utils/constants'
 import { generateEndTemplate, calculateScore } from './utils/helpers'
@@ -13,6 +13,8 @@ import { RecordPage } from './components/record/RecordPage'
 import { ProfilePage } from './components/profile/ProfilePage'
 import { SignInView } from './components/auth/SignInView'
 import { BottomNav } from './components/navigation/BottomNav'
+import { GameModeSelection } from './components/game/GameModeSelection'
+import { CompetitionPage } from './components/game/CompetitionPage'
 import { auth, googleProvider } from './firebase'
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth'
 import { saveGameToFirestore, loadGamesFromFirestore, deleteGameFromFirestore } from './utils/firestore'
@@ -25,7 +27,7 @@ const HomeIcon = () => (
   </svg>
 )
 
-const RecordIcon = () => (
+const GameIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="9" />
     <circle cx="12" cy="12" r="5" />
@@ -64,6 +66,12 @@ const App = () => {
   const [user, setUser] = useState<User | null>(null)
   const [isLoadingGames, setIsLoadingGames] = useState(false)
   const [practiceNotes, setPracticeNotes] = useState('')
+  
+  // Competition mode state
+  const [competitionScore, setCompetitionScore] = useState(501)
+  const [competitionTurns, setCompetitionTurns] = useState<Turn[]>([])
+  const [currentTurnShots, setCurrentTurnShots] = useState<Shot[]>([])
+  const [allCompetitionShots, setAllCompetitionShots] = useState<Shot[]>([])
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async current => {
@@ -110,10 +118,25 @@ const App = () => {
     setPracticeNotes('')
   }
 
-  // Reset game state when entering record view
+  const resetCompetitionState = () => {
+    setCompetitionScore(501)
+    setCompetitionTurns([])
+    setCurrentTurnShots([])
+    setAllCompetitionShots([])
+    setPracticeNotes('')
+  }
+
+  // Reset game state when entering training view
   useEffect(() => {
-    if (view === 'record') {
+    if (view === 'training') {
       resetGameState()
+    }
+  }, [view])
+
+  // Reset competition state when entering competition view
+  useEffect(() => {
+    if (view === 'competition') {
+      resetCompetitionState()
     }
   }, [view])
 
@@ -177,6 +200,95 @@ const App = () => {
     })
   }
 
+  const handleCompetitionTargetClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (competitionScore === 0 || currentTurnShots.length >= 3) {
+      return
+    }
+
+    const wrapper = event.currentTarget
+    const rect = wrapper.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const clickX = event.clientX - centerX
+    const clickY = event.clientY - centerY
+    const wrapperRadius = rect.width / 2
+    const normalizedX = clickX / wrapperRadius
+    const normalizedY = clickY / wrapperRadius
+    const score = calculateScore(normalizedX, normalizedY)
+    
+    const shot: Shot = {
+      x: normalizedX,
+      y: normalizedY,
+      score,
+    }
+
+    // Calculate what the score would be after this shot
+    const currentTurnScore = currentTurnShots.reduce((sum, s) => sum + s.score, 0) + score
+    const potentialNewScore = competitionScore - score
+    
+    // Add shot to current turn (don't finalize yet)
+    const updatedTurnShots = [...currentTurnShots, shot]
+    setCurrentTurnShots(updatedTurnShots)
+    setAllCompetitionShots(prev => [...prev, shot])
+
+    // Check if game is won
+    if (potentialNewScore === 0) {
+      // Game won! Auto-confirm this winning turn
+      setCompetitionScore(0)
+      const finalTurn: Turn = {
+        shots: updatedTurnShots,
+        turnScore: currentTurnScore,
+      }
+      setCompetitionTurns(prev => [...prev, finalTurn])
+      setCurrentTurnShots([])
+      return
+    }
+    
+    // Check if this would go below 0 (bust) - don't update score yet, let them confirm
+  }
+
+  const handleConfirmTurn = () => {
+    if (currentTurnShots.length === 0) return
+
+    const currentTurnScore = currentTurnShots.reduce((sum, s) => sum + s.score, 0)
+    const potentialNewScore = competitionScore - currentTurnScore
+
+    // Check if this would be a bust
+    if (potentialNewScore < 0) {
+      // Bust - turn ends, score doesn't change, mark as bust
+      const bustTurn: Turn = {
+        shots: currentTurnShots,
+        turnScore: 0,
+        isBust: true,
+      }
+      setCompetitionTurns(prev => [...prev, bustTurn])
+      setCurrentTurnShots([])
+      // Score stays the same (bust doesn't reduce score)
+      return
+    }
+
+    // Valid turn - apply the score
+    setCompetitionScore(potentialNewScore)
+    const newTurn: Turn = {
+      shots: currentTurnShots,
+      turnScore: currentTurnScore,
+    }
+    setCompetitionTurns(prev => [...prev, newTurn])
+    setCurrentTurnShots([])
+  }
+
+  const handleCompetitionUndoShot = () => {
+    if (competitionScore === 0) return // Can't undo after winning
+    if (currentTurnShots.length === 0) return // Can only undo current turn shots
+
+    // Only undo from current turn (not from previous turns)
+    const lastShot = currentTurnShots[currentTurnShots.length - 1]
+    if (lastShot) {
+      setCurrentTurnShots(prev => prev.slice(0, -1))
+      setAllCompetitionShots(prev => prev.slice(0, -1))
+    }
+  }
+
   // No need for handleConfirmEnd in single session darts game
 
   const currentEnd = currentRound[0]
@@ -188,13 +300,14 @@ const App = () => {
   const handleSaveGame = async () => {
     if (!isGameComplete || !user) return
     const shots = currentRound[0]?.shots ?? []
-    const totalScore = shots.reduce((total, shot) => total + shot.score, 0)
+    const totalScore = shots.reduce((total, shot) => shot.score + total, 0)
     const game: Game = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       shots,
       totalScore,
       notes: practiceNotes || undefined,
+      gameMode: 'training',
     }
 
     // Save to Firestore first
@@ -207,6 +320,41 @@ const App = () => {
     } catch (error) {
       console.error('Failed to save game:', error)
       alert('Failed to save your game session. Please try again.')
+    }
+  }
+
+  const handleSaveCompetitionGame = async () => {
+    if (competitionScore !== 0 || !user) return
+
+    // Include any shots in the current turn (shouldn't happen when score is 0, but just in case)
+    const allTurns = [...competitionTurns]
+    if (currentTurnShots.length > 0) {
+      allTurns.push({
+        shots: currentTurnShots,
+        turnScore: currentTurnShots.reduce((sum, s) => sum + s.score, 0),
+      })
+    }
+
+    const game: Game = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      shots: allCompetitionShots,
+      totalScore: 501, // They achieved 501 points
+      notes: practiceNotes || undefined,
+      gameMode: 'competition',
+      turns: allTurns,
+      startingScore: 501,
+    }
+
+    // Save to Firestore
+    try {
+      await saveGameToFirestore(user.uid, game)
+      setGames(prev => [game, ...prev])
+      resetCompetitionState()
+      setView('home')
+    } catch (error) {
+      console.error('Failed to save competition game:', error)
+      alert('Failed to save your game. Please try again.')
     }
   }
 
@@ -309,7 +457,7 @@ const App = () => {
 
   const homeView = (
     <div className="home-page">
-      <HomeHeader onRecordNewPractice={() => setView('record')} />
+      <HomeHeader onRecordNewPractice={() => setView('game')} />
 
       {isLoadingGames ? (
         <PracticePlaceholder title="Loading your sessions…" />
@@ -321,7 +469,40 @@ const App = () => {
     </div>
   )
 
-  const recordView = (
+  const gameModeView = (
+    <GameModeSelection
+      onSelectCompetition={() => setView('competition')}
+      onSelectTraining={() => setView('training')}
+    />
+  )
+
+  // Calculate if player can confirm turn
+  const currentTurnScore = currentTurnShots.reduce((sum, s) => sum + s.score, 0)
+  const potentialScoreAfterTurn = competitionScore - currentTurnScore
+  const wouldBust = potentialScoreAfterTurn < 0
+  const wouldWin = potentialScoreAfterTurn === 0
+  const has3Darts = currentTurnShots.length === 3
+  const canConfirmCompetitionTurn = currentTurnShots.length > 0 && (has3Darts || wouldBust || wouldWin)
+
+  const competitionView = (
+    <CompetitionPage
+      canUndoShot={currentTurnShots.length > 0}
+      onUndoShot={handleCompetitionUndoShot}
+      undoIcon={UndoIcon}
+      currentScore={competitionScore}
+      onTargetClick={handleCompetitionTargetClick}
+      currentTurnShots={currentTurnShots}
+      turns={competitionTurns}
+      onEndGame={handleSaveCompetitionGame}
+      practiceNotes={practiceNotes}
+      onPracticeNotesChange={setPracticeNotes}
+      onConfirmTurn={handleConfirmTurn}
+      currentTurnNumber={competitionTurns.length + 1}
+      canConfirmTurn={canConfirmCompetitionTurn}
+    />
+  )
+
+  const trainingView = (
     <RecordPage
       canUndoShot={canUndoShot}
       onUndoShot={handleUndoShot}
@@ -373,8 +554,12 @@ const App = () => {
     switch (view) {
       case 'home':
         return homeView
-      case 'record':
-        return recordView
+      case 'game':
+        return gameModeView
+      case 'competition':
+        return competitionView
+      case 'training':
+        return trainingView
       case 'stats':
         return statsView
       case 'profile':
@@ -392,7 +577,7 @@ const App = () => {
 
   const navItems: Array<{ key: View; label: string; icon: ReactNode }> = [
     { key: 'home', label: 'Home', icon: <HomeIcon /> },
-    { key: 'record', label: 'Record', icon: <RecordIcon /> },
+    { key: 'game', label: 'Game', icon: <GameIcon /> },
     { key: 'stats', label: 'Stats', icon: <StatsIcon /> },
     { key: 'profile', label: 'Profile', icon: <ProfileIcon /> },
   ]

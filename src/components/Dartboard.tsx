@@ -15,6 +15,7 @@ interface DartboardProps {
   currentEndIndex: number
   activeShot: Shot | null
   onTargetClick: (event: MouseEvent<HTMLDivElement>) => void
+  selectedEndIndex?: number | null
 }
 
 export const Dartboard = ({
@@ -22,6 +23,7 @@ export const Dartboard = ({
   currentEndIndex,
   activeShot,
   onTargetClick,
+  selectedEndIndex,
 }: DartboardProps) => {
   return (
     <div className="target-wrapper" onClick={onTargetClick} role="presentation">
@@ -120,10 +122,13 @@ export const Dartboard = ({
           end.shots.map((shot, shotIndex) => {
             const distance = Math.sqrt(shot.x ** 2 + shot.y ** 2)
             const isMiss = distance > 1
+            const hasMultipleEnds = currentRound.length > 1
+            const turnColorClass = hasMultipleEnds ? `dart-marker--turn-${endIndex % 10}` : ''
+            const isFaded = selectedEndIndex !== null && selectedEndIndex !== undefined && endIndex !== selectedEndIndex
             return (
               <circle
                 key={`${endIndex}-${shotIndex}`}
-                className={`dart-marker ${endIndex === currentEndIndex ? 'dart-marker--current' : 'dart-marker--previous'} ${isMiss ? 'dart-marker--miss' : ''}`}
+                className={`dart-marker ${hasMultipleEnds ? turnColorClass : (endIndex === currentEndIndex ? 'dart-marker--current' : 'dart-marker--previous')} ${isMiss ? 'dart-marker--miss' : ''} ${isFaded ? 'dart-marker--faded' : ''}`}
                 cx={(shot.x + 1) * 50}
                 cy={(shot.y + 1) * 50}
                 r="1.5"

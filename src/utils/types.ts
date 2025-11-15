@@ -1,9 +1,15 @@
-export type View = 'home' | 'record' | 'stats' | 'profile'
+export type View = 'home' | 'game' | 'stats' | 'profile' | 'game-mode-select' | 'competition' | 'training'
 
 export type Shot = {
   x: number
   y: number
   score: number
+}
+
+export type Turn = {
+  shots: Shot[]
+  turnScore: number
+  isBust?: boolean
 }
 
 export type Game = {
@@ -12,6 +18,15 @@ export type Game = {
   shots: Shot[]
   totalScore: number
   notes?: string
+  gameMode?: 'competition' | 'training'
+  turns?: Turn[] // For competition mode
+  startingScore?: number // For competition mode
+}
+
+export type StoredTurn = {
+  shots: StoredShot[]
+  turnScore: number
+  isBust?: boolean
 }
 
 export type StoredGame = {
@@ -20,6 +35,9 @@ export type StoredGame = {
   totalScore: number
   shots: StoredShot[]
   notes?: string
+  gameMode?: 'competition' | 'training'
+  turns?: StoredTurn[]
+  startingScore?: number
 }
 
 export type StoredShot = {

@@ -1,0 +1,60 @@
+export type View = 'home' | 'record' | 'stats' | 'profile'
+
+export type Shot = {
+  x: number
+  y: number
+  score: number
+}
+
+export type Game = {
+  id: string
+  createdAt: string
+  shots: Shot[]
+  totalScore: number
+  notes?: string
+}
+
+export type StoredGame = {
+  id: string
+  createdAt: string
+  totalScore: number
+  shots: StoredShot[]
+  notes?: string
+}
+
+export type StoredShot = {
+  x?: number
+  y?: number
+  score: number
+}
+
+export type AggregateStats = {
+  averagePoints: number
+  averageDistanceFromCenter: number
+  missedShots: number
+  averagePrecision: number
+  shotCount: number
+}
+
+// Legacy types for migration compatibility
+export type End = {
+  shots: Shot[]
+  endScore: number
+  precision: number
+}
+
+export type Round = {
+  id: string
+  createdAt: string
+  ends: End[]
+  totalScore: number
+  notes?: string
+}
+
+export type StoredRound = {
+  id: string
+  createdAt: string
+  totalScore: number
+  round: Record<string, Record<string, StoredShot | number>>
+  notes?: string
+}

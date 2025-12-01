@@ -2,6 +2,7 @@ import type { FC, MouseEvent } from 'react'
 import type { Shot } from '../../utils/types'
 import { Dartboard } from '../Dartboard'
 import { UndoButton } from '../UndoButton'
+import { TrainingFeedback } from '../TrainingFeedback'
 
 interface TargetSpot {
   type: 'single' | 'double' | 'triple' | 'bullseye' | 'outer-bull'
@@ -21,6 +22,7 @@ interface TrainingPageProps {
   onEndTraining: () => void
   spotsCompleted: number
   maxSpots: number
+  feedback: { message: string; type: 'hit' | 'miss' } | null
 }
 
 export const TrainingPage: FC<TrainingPageProps> = ({
@@ -35,6 +37,7 @@ export const TrainingPage: FC<TrainingPageProps> = ({
   onEndTraining,
   spotsCompleted,
   maxSpots,
+  feedback,
 }) => {
   // Create dartboard display data for current target attempts
   const currentRound = [{
@@ -68,12 +71,16 @@ export const TrainingPage: FC<TrainingPageProps> = ({
           Tap the dartboard where you hit. Hit the target on your first try for maximum points!
         </p>
 
-        <Dartboard
-          currentRound={currentRound}
-          currentEndIndex={0}
-          activeShot={null}
-          onTargetClick={onTargetClick}
-        />
+        <div className="dartboard-container">
+          <Dartboard
+            currentRound={currentRound}
+            currentEndIndex={0}
+            activeShot={null}
+            onTargetClick={onTargetClick}
+          />
+
+          <TrainingFeedback feedback={feedback} />
+        </div>
 
         <div className="training-scoring">
           <p className="training-scoring__title">Scoring</p>

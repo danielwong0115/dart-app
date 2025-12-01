@@ -2681,3 +2681,55 @@ button {
   font-weight: 600;
   color: #fefefe;
 }
+
+/* Training feedback animation */
+.dartboard-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.training-feedback {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  pointer-events: none;
+  animation: training-feedback-appear 1s ease-out forwards;
+}
+
+.training-feedback__text {
+  font-size: 50px;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.05em;
+}
+
+.training-feedback--hit .training-feedback__text {
+  color: #22c55e;
+}
+
+.training-feedback--miss .training-feedback__text {
+  color: #ef4444;
+}
+
+@keyframes training-feedback-appear {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

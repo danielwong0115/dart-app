@@ -79,6 +79,7 @@ const App = () => {
   const [allTrainingShots, setAllTrainingShots] = useState<Shot[]>([])
   const [spotsCompleted, setSpotsCompleted] = useState(0)
   const TRAINING_MAX_SPOTS = 20
+  const [trainingFeedback, setTrainingFeedback] = useState<{ message: string; type: 'hit' | 'miss' } | null>(null)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async current => {
@@ -158,6 +159,7 @@ const App = () => {
     setAllTrainingShots([])
     setSpotsCompleted(0)
     setPracticeNotes('')
+    setTrainingFeedback(null)
   }
 
   // Reset game state when entering training view
@@ -358,6 +360,10 @@ const App = () => {
       const newSpotsCompleted = spotsCompleted + 1
       setSpotsCompleted(newSpotsCompleted)
       
+      // Show feedback animation
+      setTrainingFeedback({ message: `+${points}`, type: 'hit' })
+      setTimeout(() => setTrainingFeedback(null), 1000)
+      
       // Check if training session is complete
       if (newSpotsCompleted >= TRAINING_MAX_SPOTS) {
         // End training session and save automatically
@@ -377,6 +383,10 @@ const App = () => {
       // Missed, decrement attempts
       const newAttemptsLeft = trainingAttemptsLeft - 1
       setTrainingAttemptsLeft(newAttemptsLeft)
+      
+      // Show feedback animation
+      setTrainingFeedback({ message: 'Missed', type: 'miss' })
+      setTimeout(() => setTrainingFeedback(null), 1000)
       
       if (newAttemptsLeft === 0) {
         // Out of attempts, check if session is complete
@@ -621,6 +631,7 @@ const App = () => {
       onEndTraining={handleSaveTrainingGame}
       spotsCompleted={spotsCompleted}
       maxSpots={TRAINING_MAX_SPOTS}
+      feedback={trainingFeedback}
     />
   ) : null
 

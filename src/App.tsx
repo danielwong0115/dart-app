@@ -1,20 +1,19 @@
 import type { MouseEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import type { View, Shot, End, Game, Turn } from './utils/types'
+import type { View, Shot, Game, Turn } from './utils/types'
 import type { PracticeCardProps } from './components/home/PracticeCard'
-import { SHOTS_PER_GAME } from './utils/constants'
-import { generateEndTemplate, calculateScore } from './utils/helpers'
+import { calculateScore } from './utils/helpers'
 import { StatsView } from './components/StatsView'
 import { HomeHeader } from './components/home/HomeHeader'
 import { PracticeList } from './components/home/PracticeList'
 import { PracticePlaceholder } from './components/home/PracticePlaceholder'
-import { RecordPage } from './components/record/RecordPage'
 import { ProfilePage } from './components/profile/ProfilePage'
 import { SignInView } from './components/auth/SignInView'
 import { BottomNav } from './components/navigation/BottomNav'
 import { GameModeSelection } from './components/game/GameModeSelection'
 import { CompetitionPage } from './components/game/CompetitionPage'
+import { TrainingPage } from './components/game/TrainingPage'
 import { auth, googleProvider } from './firebase'
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth'
 import { saveGameToFirestore, loadGamesFromFirestore, deleteGameFromFirestore } from './utils/firestore'
@@ -60,8 +59,6 @@ const UndoIcon = () => (
 
 const App = () => {
   const [view, setView] = useState<View>('home')
-  const [currentEndIndex] = useState(0) // Always 0 for single game
-  const [currentRound, setCurrentRound] = useState<End[]>(() => [generateEndTemplate()])
   const [games, setGames] = useState<Game[]>([])
   const [user, setUser] = useState<User | null>(null)
   const [isLoadingGames, setIsLoadingGames] = useState(false)
@@ -72,6 +69,16 @@ const App = () => {
   const [competitionTurns, setCompetitionTurns] = useState<Turn[]>([])
   const [currentTurnShots, setCurrentTurnShots] = useState<Shot[]>([])
   const [allCompetitionShots, setAllCompetitionShots] = useState<Shot[]>([])
+
+  // Training mode state
+  type TargetSpot = { type: 'single' | 'double' | 'triple' | 'bullseye' | 'outer-bull'; number: number; displayName: string }
+  const [trainingScore, setTrainingScore] = useState(0)
+  const [currentTarget, setCurrentTarget] = useState<TargetSpot | null>(null)
+  const [currentSpotShots, setCurrentSpotShots] = useState<Shot[]>([])
+  const [trainingAttemptsLeft, setTrainingAttemptsLeft] = useState(3)
+  const [allTrainingShots, setAllTrainingShots] = useState<Shot[]>([])
+  const [spotsCompleted, setSpotsCompleted] = useState(0)
+  const TRAINING_MAX_SPOTS = 20
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async current => {
@@ -113,11 +120,6 @@ const App = () => {
     }
   }
 
-  const resetGameState = () => {
-    setCurrentRound([generateEndTemplate()])
-    setPracticeNotes('')
-  }
-
   const resetCompetitionState = () => {
     setCompetitionScore(501)
     setCompetitionTurns([])
@@ -126,10 +128,42 @@ const App = () => {
     setPracticeNotes('')
   }
 
+  const generateRandomTarget = (): TargetSpot => {
+    const types: Array<'single' | 'double' | 'triple' | 'bullseye' | 'outer-bull'> = [
+      'single', 'single', 'single', 'double', 'double', 'triple', 'triple', 'bullseye', 'outer-bull'
+    ]
+    const type = types[Math.floor(Math.random() * types.length)]
+    
+    if (type === 'bullseye') {
+      return { type: 'bullseye', number: 50, displayName: 'Bullseye' }
+    }
+    if (type === 'outer-bull') {
+      return { type: 'outer-bull', number: 25, displayName: 'Outer Bull (25)' }
+    }
+    
+    const number = Math.floor(Math.random() * 20) + 1
+    const typeMap = { single: 'Single', double: 'Double', triple: 'Triple' }
+    return { 
+      type, 
+      number, 
+      displayName: `${typeMap[type]} ${number}` 
+    }
+  }
+
+  const resetTrainingState = () => {
+    setTrainingScore(0)
+    setCurrentTarget(generateRandomTarget())
+    setCurrentSpotShots([])
+    setTrainingAttemptsLeft(3)
+    setAllTrainingShots([])
+    setSpotsCompleted(0)
+    setPracticeNotes('')
+  }
+
   // Reset game state when entering training view
   useEffect(() => {
     if (view === 'training') {
-      resetGameState()
+      resetTrainingState()
     }
   }, [view])
 
@@ -140,65 +174,7 @@ const App = () => {
     }
   }, [view])
 
-  const updateGameWithShot = (shot: Shot) => {
-    setCurrentRound(prev => {
-      const updated = [...prev]
-      const end = updated[0]
-      if (!end) return prev
 
-      const shots = [...end.shots, shot].slice(0, SHOTS_PER_GAME)
-      const endScore = shots.reduce((total, s) => total + s.score, 0)
-      updated[0] = { shots, endScore, precision: 0 }
-      return updated
-    })
-  }
-
-  const handleTargetClick = (event: MouseEvent<HTMLDivElement>) => {
-    const currentEnd = currentRound[0]
-    if (!currentEnd || currentEnd.shots.length >= SHOTS_PER_GAME) {
-      return
-    }
-    const wrapper = event.currentTarget
-    const rect = wrapper.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    const clickX = event.clientX - centerX
-    const clickY = event.clientY - centerY
-
-    // Use wrapper size for radius calculation
-    const wrapperRadius = rect.width / 2
-
-    // Normalize to dartboard size (values > 1 or < -1 are outside dartboard)
-    const normalizedX = clickX / wrapperRadius
-    const normalizedY = clickY / wrapperRadius
-
-    // Calculate score based on dartboard rules
-    const score = calculateScore(normalizedX, normalizedY)
-    const shot: Shot = {
-      x: normalizedX,
-      y: normalizedY,
-      score,
-    }
-
-    // Immediately add the shot
-    updateGameWithShot(shot)
-  }
-
-  const handleUndoShot = () => {
-    const currentEnd = currentRound[0]
-    if (!currentEnd || currentEnd.shots.length === 0) return
-
-    setCurrentRound(prev => {
-      const updated = [...prev]
-      const end = updated[0]
-      if (!end) return prev
-
-      const shots = end.shots.slice(0, -1) // Remove last shot
-      const endScore = shots.reduce((total, s) => total + s.score, 0)
-      updated[0] = { shots, endScore, precision: 0 }
-      return updated
-    })
-  }
 
   const handleCompetitionTargetClick = (event: MouseEvent<HTMLDivElement>) => {
     if (competitionScore === 0 || currentTurnShots.length >= 3) {
@@ -289,39 +265,151 @@ const App = () => {
     }
   }
 
-  // No need for handleConfirmEnd in single session darts game
+  const checkIfHitTarget = (shot: Shot, target: TargetSpot): boolean => {
+    const distance = Math.sqrt(shot.x ** 2 + shot.y ** 2)
+    
+    // Check bullseye
+    if (target.type === 'bullseye') {
+      return distance <= 0.05 // BULLSEYE_RADIUS
+    }
+    
+    // Check outer bull
+    if (target.type === 'outer-bull') {
+      return distance > 0.05 && distance <= 0.12 // OUTER_BULL_RADIUS
+    }
+    
+    // For miss
+    if (distance > 1) return false
+    
+    // Calculate angle to determine segment (same logic as calculateScore)
+    let angle = Math.atan2(shot.y, shot.x) * (180 / Math.PI)
+    angle = (angle + 90 + 360) % 360 // Normalize to 0-360, with 0 at top
+    
+    // Each segment is 18 degrees (360 / 20)
+    const segmentIndex = Math.floor(((angle + 9) % 360) / 18)
+    const segments = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5] // Clockwise from top
+    const hitNumber = segments[segmentIndex]
+    
+    if (hitNumber !== target.number) return false
+    
+    // Check ring type
+    if (distance <= 0.12) return false // Bull area
+    
+    // Check for triple ring (0.55 to 0.62)
+    if (distance >= 0.55 && distance <= 0.62) {
+      return target.type === 'triple'
+    }
+    
+    // Check for double ring (0.93 to 1.0)
+    if (distance >= 0.93 && distance <= 1.0) {
+      return target.type === 'double'
+    }
+    
+    // Everything else is single
+    return target.type === 'single'
+  }
 
-  const currentEnd = currentRound[0]
-  const shotsInCurrentEnd = currentEnd?.shots ?? []
+  const calculateTrainingPoints = (target: TargetSpot, attemptNumber: number): number => {
+    const basePoints = {
+      'single': 100,
+      'double': 200,
+      'triple': 300,
+      'bullseye': 200,
+      'outer-bull': 100
+    }
+    
+    const base = basePoints[target.type]
+    if (attemptNumber === 1) return base
+    if (attemptNumber === 2) return Math.floor(base / 2)
+    return Math.floor(base / 4)
+  }
 
-  const isGameComplete = shotsInCurrentEnd.length === SHOTS_PER_GAME
-  const canUndoShot = shotsInCurrentEnd.length > 0
+  const handleTrainingTargetClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (!currentTarget || trainingAttemptsLeft === 0) return
 
-  const handleSaveGame = async () => {
-    if (!isGameComplete || !user) return
-    const shots = currentRound[0]?.shots ?? []
-    const totalScore = shots.reduce((total, shot) => shot.score + total, 0)
-    const game: Game = {
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      shots,
-      totalScore,
-      notes: practiceNotes || undefined,
-      gameMode: 'training',
+    const wrapper = event.currentTarget
+    const rect = wrapper.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const clickX = event.clientX - centerX
+    const clickY = event.clientY - centerY
+    const wrapperRadius = rect.width / 2
+    const normalizedX = clickX / wrapperRadius
+    const normalizedY = clickY / wrapperRadius
+    const score = calculateScore(normalizedX, normalizedY)
+    
+    const shot: Shot = {
+      x: normalizedX,
+      y: normalizedY,
+      score,
     }
 
-    // Save to Firestore first
-    try {
-      await saveGameToFirestore(user.uid, game)
-      // Only update local state after successful save
-      setGames(prev => [game, ...prev])
-      resetGameState()
-      setView('home')
-    } catch (error) {
-      console.error('Failed to save game:', error)
-      alert('Failed to save your game session. Please try again.')
+    const updatedSpotShots = [...currentSpotShots, shot]
+    setCurrentSpotShots(updatedSpotShots)
+    setAllTrainingShots(prev => [...prev, shot])
+
+    const hitTarget = checkIfHitTarget(shot, currentTarget)
+    const attemptNumber = 4 - trainingAttemptsLeft
+
+    if (hitTarget) {
+      // Hit the target! Award points
+      const points = calculateTrainingPoints(currentTarget, attemptNumber)
+      setTrainingScore(prev => prev + points)
+      const newSpotsCompleted = spotsCompleted + 1
+      setSpotsCompleted(newSpotsCompleted)
+      
+      // Check if training session is complete
+      if (newSpotsCompleted >= TRAINING_MAX_SPOTS) {
+        // End training session and save automatically
+        setTimeout(() => {
+          handleSaveTrainingGame()
+        }, 500)
+        return
+      }
+      
+      // Move to next target after a brief moment
+      setTimeout(() => {
+        setCurrentTarget(generateRandomTarget())
+        setCurrentSpotShots([])
+        setTrainingAttemptsLeft(3)
+      }, 500)
+    } else {
+      // Missed, decrement attempts
+      const newAttemptsLeft = trainingAttemptsLeft - 1
+      setTrainingAttemptsLeft(newAttemptsLeft)
+      
+      if (newAttemptsLeft === 0) {
+        // Out of attempts, check if session is complete
+        const newSpotsCompleted = spotsCompleted + 1
+        setSpotsCompleted(newSpotsCompleted)
+        
+        if (newSpotsCompleted >= TRAINING_MAX_SPOTS) {
+          // End training session and save automatically
+          setTimeout(() => {
+            handleSaveTrainingGame()
+          }, 500)
+          return
+        }
+        
+        // Move to next target
+        setTimeout(() => {
+          setCurrentTarget(generateRandomTarget())
+          setCurrentSpotShots([])
+          setTrainingAttemptsLeft(3)
+        }, 500)
+      }
     }
   }
+
+  const handleTrainingUndoShot = () => {
+    if (currentSpotShots.length === 0) return
+    
+    setCurrentSpotShots(prev => prev.slice(0, -1))
+    setAllTrainingShots(prev => prev.slice(0, -1))
+    setTrainingAttemptsLeft(prev => Math.min(prev + 1, 3))
+  }
+
+  // No need for handleConfirmEnd in single session darts game
 
   const handleSaveCompetitionGame = async () => {
     if (competitionScore !== 0 || !user) return
@@ -358,9 +446,27 @@ const App = () => {
     }
   }
 
-  const primaryActionLabel = 'Save Game'
-  const primaryActionDisabled = !isGameComplete
-  const handlePrimaryActionClick = handleSaveGame
+  const handleSaveTrainingGame = async () => {
+    if (!user) return
+
+    const game: Game = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      shots: allTrainingShots,
+      totalScore: trainingScore,
+      gameMode: 'training',
+    }
+
+    try {
+      await saveGameToFirestore(user.uid, game)
+      setGames(prev => [game, ...prev])
+      resetTrainingState()
+      setView('home')
+    } catch (error) {
+      console.error('Failed to save training game:', error)
+      alert('Failed to save your training session. Please try again.')
+    }
+  }
 
   const handleDeleteGame = async (gameId: string) => {
     if (!user) {
@@ -502,23 +608,21 @@ const App = () => {
     />
   )
 
-  const trainingView = (
-    <RecordPage
-      canUndoShot={canUndoShot}
-      onUndoShot={handleUndoShot}
+  const trainingView = currentTarget ? (
+    <TrainingPage
+      canUndoShot={currentSpotShots.length > 0}
+      onUndoShot={handleTrainingUndoShot}
       undoIcon={UndoIcon}
-      currentRound={currentRound}
-      currentEndIndex={currentEndIndex}
-      onTargetClick={handleTargetClick}
-      shotsInCurrentEnd={shotsInCurrentEnd}
-      shotsPerEnd={SHOTS_PER_GAME}
-      onPrimaryActionClick={handlePrimaryActionClick}
-      primaryActionDisabled={primaryActionDisabled}
-      primaryActionLabel={primaryActionLabel}
-      practiceNotes={practiceNotes}
-      onPracticeNotesChange={setPracticeNotes}
+      onTargetClick={handleTrainingTargetClick}
+      currentSpotShots={currentSpotShots}
+      totalScore={trainingScore}
+      currentTarget={currentTarget}
+      attemptsLeft={trainingAttemptsLeft}
+      onEndTraining={handleSaveTrainingGame}
+      spotsCompleted={spotsCompleted}
+      maxSpots={TRAINING_MAX_SPOTS}
     />
-  )
+  ) : null
 
   // Convert games to rounds format for StatsView compatibility
   const gamesAsRounds = useMemo(() => {

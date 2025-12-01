@@ -2518,6 +2518,150 @@ button {
   color: #cbd5f5;
 }
 
+/* Training Page Styles */
+.training-page {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.training-panel {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.training-score {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.2), rgba(99, 102, 241, 0.1));
+  border: 2px solid rgba(226, 232, 240, 0.3);
+  border-radius: 16px;
+}
+
+.training-score__total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.training-score__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5f5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.training-score__value {
+  font-size: 48px;
+  font-weight: 800;
+  color: #fefefe;
+  line-height: 1;
+}
+
+.training-score__spots {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+  border-top: 1px solid rgba(226, 232, 240, 0.2);
+}
+
+.training-score__spots-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5f5;
+}
+
+.training-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 2px solid rgba(34, 197, 94, 0.4);
+  border-radius: 16px;
+}
+
+.training-target__label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5f5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.training-target__name {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  color: #22c55e;
+  text-align: center;
+  line-height: 1;
+}
+
+.training-target__attempts {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #cbd5f5;
+}
+
+.training-scoring {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(226, 232, 240, 0.2);
+  border-radius: 12px;
+}
+
+.training-scoring__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #cbd5f5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.training-scoring__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.training-scoring__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(51, 65, 85, 0.4);
+  border-radius: 8px;
+  border: 1px solid rgba(226, 232, 240, 0.15);
+}
+
+.training-scoring__attempt {
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5f5;
+}
+
+.training-scoring__points {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fefefe;
+}
+
 .turn-card__shots {
   display: flex;
   gap: 8px;

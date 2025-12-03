@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Round } from '../utils/types'
-import { calculateAverage, calculateDistanceFromCenter } from '../utils/helpers'
-import { computeAggregateStats } from '../utils/aggregateStats'
+import type { Round, Game } from '../utils/types'
+import { calculateAverage } from '../utils/helpers'
 import { updateRoundNotesInFirestore } from '../utils/firestore'
 import { StatsTabs, type StatsTab } from './stats/StatsTabs'
 import { AggregateControls } from './stats/AggregateControls'
-import { AggregateTarget } from './stats/AggregateTarget'
-import { AggregateSummary } from './stats/AggregateSummary'
-import { HistoryChart, type MetricKey } from './stats/HistoryChart'
+import { DartAccuracyMetrics } from './stats/DartAccuracyMetrics'
 import { PracticeList, type PracticeEntry } from './stats/PracticeList'
 import { DeletePracticeModal } from './stats/DeletePracticeModal'
+import { AccuracyDartboard } from './stats/AccuracyDartboard'
+import { AccuracyTimelineChart } from './stats/AccuracyTimelineChart'
+import { TrainingAccuracyChart } from './stats/TrainingAccuracyChart'
 
 interface StatsViewProps {
   rounds: Round[]
   userId: string
   onDeleteRound: (roundId: string) => Promise<void>
+  games?: Game[] // Original games with training accuracy data
 }
 
 const formatDate = (timestamp: string): string => {
@@ -29,14 +30,6 @@ const formatDate = (timestamp: string): string => {
     timeStyle: 'short',
   }).format(date)
 }
-
-type MetricConfig = { key: MetricKey; label: string; color: string }
-
-const CHART_METRICS: MetricConfig[] = [
-  { key: 'avgScore', label: 'Average score', color: '#3b82f6' },
-  { key: 'avgDistance', label: 'Accuracy', color: '#10b981' },
-  { key: 'avgPrecision', label: 'Grouping score', color: '#a78bfa' },
-]
 
 const exportToCSV = (rounds: Round[]) => {
   const sortedRounds = [...rounds].sort(
@@ -94,74 +87,14 @@ const exportToCSV = (rounds: Round[]) => {
   URL.revokeObjectURL(url)
 }
 
-type ChartDatum = {
-  practice: string
-  practiceNumber: number
-  avgScore: number
-  avgDistance: number
-  avgPrecision: number
-  totalScore: number
-  date: string
-}
-
-const prepareChartData = (rounds: Round[]): ChartDatum[] => {
-  const clampPerformanceScore = (value: number): number => Math.max(0, Math.min(10, value))
-
-  return rounds.map((round, index) => {
-    const shots = round.ends.flatMap(end => end.shots)
-    const averageScore = calculateAverage(shots.map(shot => shot.score))
-    const averageDistance = calculateAverage(shots.map(shot => calculateDistanceFromCenter(shot)))
-    const precisions = round.ends.map(end => end.precision).filter(value => value > 0)
-    const averagePrecision = calculateAverage(precisions)
-
-    const averageScoreRounded = Number(averageScore.toFixed(2))
-    const averageDistanceScore = clampPerformanceScore(10 - Number(averageDistance.toFixed(2)))
-    const averagePrecisionScore = clampPerformanceScore(10 - Number(averagePrecision.toFixed(2)))
-
-    return {
-      practice: `#${rounds.length - index}`,
-      practiceNumber: rounds.length - index,
-      avgScore: averageScoreRounded,
-      avgDistance: averageDistanceScore,
-      avgPrecision: averagePrecisionScore,
-      totalScore: round.totalScore,
-      date: formatDate(round.createdAt),
-    }
-  })
-}
-
-export const StatsView = ({ rounds, userId, onDeleteRound }: StatsViewProps) => {
+export const StatsView = ({ rounds, userId, onDeleteRound, games = [] }: StatsViewProps) => {
   const [activeTab, setActiveTab] = useState<StatsTab>('history')
   const [range, setRange] = useState(5)
   const [rangeInput, setRangeInput] = useState('5')
-  const [highlightedMetrics, setHighlightedMetrics] = useState<Set<MetricKey>>(new Set())
-  const [showMetricsInfo, setShowMetricsInfo] = useState(false)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return
-    }
-
-    const mediaQuery = window.matchMedia('(max-width: 480px)')
-
-    const handleChange = (event: MediaQueryListEvent) => {
-      setIsMobile(event.matches)
-    }
-
-    setIsMobile(mediaQuery.matches)
-
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', handleChange)
-      return () => mediaQuery.removeEventListener('change', handleChange)
-    }
-
-    mediaQuery.addListener(handleChange)
-    return () => mediaQuery.removeListener(handleChange)
-  }, [])
+  const [selectedSection, setSelectedSection] = useState<string | null>(null)
 
   const sortedRounds = useMemo(
     () => [...rounds].sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()),
@@ -218,9 +151,6 @@ export const StatsView = ({ rounds, userId, onDeleteRound }: StatsViewProps) => 
     [sortedRounds, activeTab, effectiveRange],
   )
 
-  const aggregateStats = useMemo(() => computeAggregateStats(selectedRounds), [selectedRounds])
-  const chartData = useMemo(() => prepareChartData(sortedRounds).reverse(), [sortedRounds])
-
   const practiceNumberLookup = useMemo(() => {
     const lookup = new Map<string, number>()
     sortedRounds.forEach((round, index) => {
@@ -230,32 +160,21 @@ export const StatsView = ({ rounds, userId, onDeleteRound }: StatsViewProps) => 
   }, [sortedRounds])
 
   const historyEntries: PracticeEntry[] = useMemo(
-    () => selectedRounds.map((round, index) => ({
-      round,
-      practiceNumber: practiceNumberLookup.get(round.id) ?? (selectedRounds.length - index),
-      formattedDate: formatDate(round.createdAt),
-    })),
-    [selectedRounds, practiceNumberLookup],
+    () => selectedRounds.map((round, index) => {
+      // Find corresponding game by ID
+      const game = games.find(g => g.id === round.id)
+      return {
+        round,
+        practiceNumber: practiceNumberLookup.get(round.id) ?? (selectedRounds.length - index),
+        formattedDate: formatDate(round.createdAt),
+        game,
+      }
+    }),
+    [selectedRounds, practiceNumberLookup, games],
   )
 
   const handleTabChange = (tab: StatsTab) => {
     setActiveTab(tab)
-  }
-
-  const toggleMetricHighlight = (metricKey: MetricKey) => {
-    setHighlightedMetrics(previous => {
-      const next = new Set(previous)
-      if (next.has(metricKey)) {
-        next.delete(metricKey)
-      } else {
-        next.add(metricKey)
-      }
-      return next
-    })
-  }
-
-  const handleToggleMetricsInfo = () => {
-    setShowMetricsInfo(previous => !previous)
   }
 
   const handleRequestDelete = (roundId: string) => {
@@ -297,6 +216,14 @@ export const StatsView = ({ rounds, userId, onDeleteRound }: StatsViewProps) => 
     await updateRoundNotesInFirestore(userId, roundId, notes)
   }
 
+  const handleSectionClick = (section: string) => {
+    if (selectedSection === section) {
+      setSelectedSection(null) // Deselect if clicking the same section
+    } else {
+      setSelectedSection(section)
+    }
+  }
+
   const pendingDeleteRound = useMemo(
     () => (pendingDeleteId ? sortedRounds.find(round => round.id === pendingDeleteId) ?? null : null),
     [pendingDeleteId, sortedRounds],
@@ -323,6 +250,9 @@ export const StatsView = ({ rounds, userId, onDeleteRound }: StatsViewProps) => 
     )
   }
 
+  // Check if we have any training games for dartboard view
+  const hasTrainingData = games.some(game => game.gameMode === 'training' && game.trainingAccuracy)
+
   return (
     <div className="stats-container">
       <div className="stats-header">
@@ -331,27 +261,41 @@ export const StatsView = ({ rounds, userId, onDeleteRound }: StatsViewProps) => 
 
       {activeTab === 'aggregate' ? (
         <div className="stats-aggregate">
-          <AggregateControls
-            rangeInput={rangeInput}
-            onRangeInputChange={handleRangeInputChange}
-            onRangeInputBlur={handleRangeInputBlur}
-          />
+          {/* Dartboard Accuracy Section - Always show at top */}
+          {hasTrainingData && (
+            <div className="stats-dartboard-section">
+              <h2 className="stats-section-title">Training Accuracy by Target</h2>
+              <AccuracyDartboard 
+                games={games}
+                selectedSection={selectedSection}
+                onSectionClick={handleSectionClick}
+              />
+              
+              {selectedSection && (
+                <div className="stats-timeline-section">
+                  <AccuracyTimelineChart 
+                    games={games}
+                    selectedSection={selectedSection}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Dart-specific aggregate metrics */}
+          <div className="stats-aggregate-legacy">
+            <AggregateControls
+              rangeInput={rangeInput}
+              onRangeInputChange={handleRangeInputChange}
+              onRangeInputBlur={handleRangeInputBlur}
+            />
 
-          <AggregateTarget rounds={selectedRounds} />
-
-          <AggregateSummary roundCount={selectedRounds.length} aggregateStats={aggregateStats} />
+            <DartAccuracyMetrics games={games} />
+          </div>
         </div>
       ) : (
         <div className="stats-history">
-          <HistoryChart
-            data={chartData}
-            metrics={CHART_METRICS}
-            highlightedMetrics={highlightedMetrics}
-            onToggleMetric={toggleMetricHighlight}
-            showMetricsInfo={showMetricsInfo}
-            onToggleMetricsInfo={handleToggleMetricsInfo}
-            isMobile={isMobile}
-          />
+          <TrainingAccuracyChart games={games} />
 
           <div className="stats-chart__actions">
             <button

@@ -33,6 +33,7 @@ export const saveGameToFirestore = async (userId: string, game: Game): Promise<v
         }))
       }),
       ...(game.startingScore !== undefined && { startingScore: game.startingScore }),
+      ...(game.trainingAccuracy && { trainingAccuracy: game.trainingAccuracy }),
     }
 
     await setDoc(doc(userGamesRef, game.id), storedGame)
@@ -77,6 +78,7 @@ export const loadGamesFromFirestore = async (userId: string): Promise<Game[]> =>
           isBust: turn.isBust,
         })),
         startingScore: data.startingScore,
+        trainingAccuracy: data.trainingAccuracy,
       })
     })
     

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { calculateAverage } from '../../utils/helpers'
-import type { Round } from '../../utils/types'
-import { PracticeEnd } from './PracticeEnd'
+import type { Round, Game } from '../../utils/types'
+import { SessionDartboard } from './SessionDartboard'
 
 type SaveStatus = 'idle' | 'saving' | 'saved'
 
@@ -13,6 +13,7 @@ interface PracticeCardProps {
   onSaveNotes: (roundId: string, notes: string) => Promise<void>
   isDeleting: boolean
   isDeletePending: boolean
+  game?: Game // Original game data with training accuracy
 }
 
 const formatUnits = (value: number, fractionDigits = 1): string => value.toFixed(fractionDigits)
@@ -25,9 +26,9 @@ export const PracticeCard = ({
   onSaveNotes,
   isDeleting,
   isDeletePending,
+  game,
 }: PracticeCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
-  const [expandedEnds, setExpandedEnds] = useState<Record<number, boolean>>({})
   const [notes, setNotes] = useState(round.notes ?? '')
   const [hasChanges, setHasChanges] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
@@ -49,13 +50,6 @@ export const PracticeCard = ({
     const roundPrecisions = round.ends.map(end => end.precision).filter(precision => precision > 0)
     return calculateAverage(roundPrecisions)
   }, [round.ends])
-
-  const handleToggleEnd = (endIndex: number) => {
-    setExpandedEnds(previous => ({
-      ...previous,
-      [endIndex]: !previous[endIndex],
-    }))
-  }
 
   const handleNotesChange = (value: string) => {
     setNotes(value)
@@ -189,16 +183,13 @@ export const PracticeCard = ({
             />
           </div>
           <div className="practice-card__body">
-            {round.ends.map((end, endIndex) => (
-              <PracticeEnd
-                key={`${round.id}-end-${endIndex}`}
-                roundId={round.id}
-                end={end}
-                endIndex={endIndex}
-                isExpanded={Boolean(expandedEnds[endIndex])}
-                onToggle={() => handleToggleEnd(endIndex)}
-              />
-            ))}
+            {game ? (
+              <SessionDartboard game={game} />
+            ) : (
+              <div className="practice-card__no-data">
+                <p>Session details not available</p>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import type { Shot, End } from '../utils/types'
+import type { Shot, End, DartboardSection } from '../utils/types'
 import { 
   DARTBOARD_SEGMENTS,
   BULLSEYE_RADIUS,
@@ -16,6 +16,7 @@ interface DartboardProps {
   activeShot: Shot | null
   onTargetClick: (event: MouseEvent<HTMLDivElement>) => void
   selectedEndIndex?: number | null
+  recommendedTarget?: DartboardSection | null
 }
 
 export const Dartboard = ({
@@ -24,10 +25,11 @@ export const Dartboard = ({
   activeShot,
   onTargetClick,
   selectedEndIndex,
+  recommendedTarget,
 }: DartboardProps) => {
   return (
     <div className="target-wrapper" onClick={onTargetClick} role="presentation">
-      <svg className="dartboard" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <svg className="dartboard" viewBox="-5 -5 110 110" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <clipPath id="double-clip">
             <circle cx="50" cy="50" r={DOUBLE_OUTER_RADIUS * 50} />
@@ -42,12 +44,28 @@ export const Dartboard = ({
           </clipPath>
         </defs>
         
+        {/* Background circle for dartboard */}
+        <circle
+          cx="50"
+          cy="50"
+          r="50"
+          fill="#1a1a1a"
+          stroke="#4a5568"
+          strokeWidth="0.6"
+          style={{ filter: 'drop-shadow(0px 4px 12px rgba(0, 0, 0, 0.5))' }}
+        />
+        
         {/* Draw segments */}
         {DARTBOARD_SEGMENTS.map((segment, index) => {
           const angle = (index * 18) - 90 // Segment center at top (20 is at 0 degrees)
           const isBlack = index % 2 === 0
           const color = isBlack ? '#1a1a1a' : '#e8dcc4'
           const redGreen = isBlack ? '#dc2626' : '#16a34a'
+          
+          // Check if this segment should be highlighted
+          const isRecommendedSingle = recommendedTarget?.type === 'single' && recommendedTarget?.number === segment
+          const isRecommendedDouble = recommendedTarget?.type === 'double' && recommendedTarget?.number === segment
+          const isRecommendedTriple = recommendedTarget?.type === 'triple' && recommendedTarget?.number === segment
           
           return (
             <g key={segment}>
@@ -58,7 +76,18 @@ export const Dartboard = ({
                 fill={color}
                 stroke="#2d3748"
                 strokeWidth="0.1"
+                opacity={isRecommendedSingle ? 1 : 1}
               />
+              {isRecommendedSingle && (
+                <path
+                  className="dartboard-segment-highlight"
+                  d={describeArc(50, 50, DOUBLE_INNER_RADIUS * 50, angle - 9, angle + 9)}
+                  fill="rgba(59, 130, 246, 0.4)"
+                  stroke="#3b82f6"
+                  strokeWidth="0.5"
+                  style={{ pointerEvents: 'none' }}
+                />
+              )}
               
               {/* Double ring */}
               <path
@@ -68,6 +97,16 @@ export const Dartboard = ({
                 stroke="#2d3748"
                 strokeWidth="0.1"
               />
+              {isRecommendedDouble && (
+                <path
+                  className="dartboard-double-highlight"
+                  d={describeAnnularSegment(50, 50, DOUBLE_INNER_RADIUS * 50, DOUBLE_OUTER_RADIUS * 50, angle - 9, angle + 9)}
+                  fill="rgba(59, 130, 246, 0.4)"
+                  stroke="#3b82f6"
+                  strokeWidth="0.5"
+                  style={{ pointerEvents: 'none' }}
+                />
+              )}
               
               {/* Triple ring */}
               <path
@@ -77,16 +116,26 @@ export const Dartboard = ({
                 stroke="#2d3748"
                 strokeWidth="0.1"
               />
+              {isRecommendedTriple && (
+                <path
+                  className="dartboard-triple-highlight"
+                  d={describeAnnularSegment(50, 50, TRIPLE_INNER_RADIUS * 50, TRIPLE_OUTER_RADIUS * 50, angle - 9, angle + 9)}
+                  fill="rgba(59, 130, 246, 0.4)"
+                  stroke="#3b82f6"
+                  strokeWidth="0.5"
+                  style={{ pointerEvents: 'none' }}
+                />
+              )}
               
-              {/* Segment number */}
+              {/* Segment number - positioned outside the dartboard */}
               <text
-                x={50 + Math.cos((angle) * Math.PI / 180) * 47}
-                y={50 + Math.sin((angle) * Math.PI / 180) * 47}
+                x={50 + Math.cos((angle) * Math.PI / 180) * 53}
+                y={50 + Math.sin((angle) * Math.PI / 180) * 53}
                 className="dartboard-number"
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fill="white"
-                fontSize="4"
+                fill="#e2e8f0"
+                fontSize="4.5"
                 fontWeight="bold"
               >
                 {segment}
@@ -105,6 +154,17 @@ export const Dartboard = ({
           stroke="#2d3748"
           strokeWidth="0.2"
         />
+        {recommendedTarget?.type === 'outer-bull' && (
+          <circle
+            cx="50"
+            cy="50"
+            r={OUTER_BULL_RADIUS * 50}
+            fill="rgba(59, 130, 246, 0.4)"
+            stroke="#3b82f6"
+            strokeWidth="0.5"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
         
         {/* Bullseye (50) */}
         <circle
@@ -116,6 +176,17 @@ export const Dartboard = ({
           stroke="#2d3748"
           strokeWidth="0.2"
         />
+        {recommendedTarget?.type === 'bullseye' && (
+          <circle
+            cx="50"
+            cy="50"
+            r={BULLSEYE_RADIUS * 50}
+            fill="rgba(59, 130, 246, 0.4)"
+            stroke="#3b82f6"
+            strokeWidth="0.5"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
         
         {/* Draw all shots */}
         {currentRound.flatMap((end, endIndex) =>

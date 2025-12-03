@@ -1,5 +1,6 @@
-import { useState, type FC, type MouseEvent } from 'react'
-import type { Shot } from '../../utils/types'
+import { useState, useMemo, type FC, type MouseEvent } from 'react'
+import type { Shot, Game } from '../../utils/types'
+import { getRecommendedTarget } from '../../utils/checkoutAlgorithm'
 import { Dartboard } from '../Dartboard'
 import { UndoButton } from '../UndoButton'
 
@@ -23,6 +24,7 @@ interface CompetitionPageProps {
   onConfirmTurn: () => void
   currentTurnNumber: number
   canConfirmTurn: boolean
+  trainingGames: Game[]
 }
 
 export const CompetitionPage: FC<CompetitionPageProps> = ({
@@ -39,10 +41,36 @@ export const CompetitionPage: FC<CompetitionPageProps> = ({
   onConfirmTurn,
   currentTurnNumber,
   canConfirmTurn,
+  trainingGames,
 }) => {
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number | null>(null)
   const isGameOver = currentScore === 0
   const shotsInCurrentTurn = currentTurnShots.length
+
+  // Calculate potential score after current turn shots
+  const currentTurnScore = currentTurnShots.reduce((sum, shot) => sum + shot.score, 0)
+  const potentialScore = currentScore - currentTurnScore
+
+  // Extract training accuracy data from games
+  const allTrainingData = useMemo(() => {
+    return trainingGames
+      .filter(game => game.gameMode === 'training' && game.trainingAccuracy)
+      .map(game => game.trainingAccuracy!)
+  }, [trainingGames])
+
+  // Calculate recommended target for checkout
+  const recommendedTarget = useMemo(() => {
+    if (isGameOver) return null
+    
+    // Don't recommend if over 180 or if we'd bust
+    if (potentialScore > 180 || potentialScore < 0) return null
+    
+    const dartsLeft = 3 - shotsInCurrentTurn
+    if (dartsLeft === 0) return null
+    
+    const target = getRecommendedTarget(potentialScore, dartsLeft, allTrainingData)
+    return target?.section || null
+  }, [potentialScore, shotsInCurrentTurn, isGameOver, allTrainingData])
 
   // Create dartboard display data
   // If game is over, show all non-busted turns color-coded
@@ -79,6 +107,20 @@ export const CompetitionPage: FC<CompetitionPageProps> = ({
             : 'Tap the dartboard to place your dart. Get to exactly 0 to win!'}
         </p>
 
+        {recommendedTarget && !isGameOver && (
+          <div className="checkout-recommendation">
+            <p className="checkout-recommendation__title">💡 Recommended Target:</p>
+            <p className="checkout-recommendation__target">
+              {recommendedTarget.type === 'bullseye' && 'Bullseye (50)'}
+              {recommendedTarget.type === 'outer-bull' && 'Outer Bull (25)'}
+              {recommendedTarget.type === 'single' && `Single ${recommendedTarget.number}`}
+              {recommendedTarget.type === 'double' && `Double ${recommendedTarget.number}`}
+              {recommendedTarget.type === 'triple' && `Triple ${recommendedTarget.number}`}
+            </p>
+            <p className="checkout-recommendation__subtitle">Based on your training accuracy</p>
+          </div>
+        )}
+
         {isGameOver && (
           <div className="turn-legend">
             {turns
@@ -107,6 +149,7 @@ export const CompetitionPage: FC<CompetitionPageProps> = ({
           activeShot={null}
           onTargetClick={isGameOver ? () => {} : onTargetClick}
           selectedEndIndex={selectedTurnIndex}
+          recommendedTarget={recommendedTarget}
         />
 
         {isGameOver ? (

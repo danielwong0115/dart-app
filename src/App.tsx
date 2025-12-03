@@ -1,7 +1,7 @@
 import type { MouseEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import type { View, Shot, Game, Turn } from './utils/types'
+import type { View, Shot, Game, Turn, TrainingAccuracyData } from './utils/types'
 import type { PracticeCardProps } from './components/home/PracticeCard'
 import { calculateScore } from './utils/helpers'
 import { StatsView } from './components/StatsView'
@@ -80,6 +80,7 @@ const App = () => {
   const [spotsCompleted, setSpotsCompleted] = useState(0)
   const TRAINING_MAX_SPOTS = 20
   const [trainingFeedback, setTrainingFeedback] = useState<{ message: string; type: 'hit' | 'miss' } | null>(null)
+  const [trainingAccuracy, setTrainingAccuracy] = useState<TrainingAccuracyData>({ sections: {} })
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async current => {
@@ -160,6 +161,7 @@ const App = () => {
     setSpotsCompleted(0)
     setPracticeNotes('')
     setTrainingFeedback(null)
+    setTrainingAccuracy({ sections: {} })
   }
 
   // Reset game state when entering training view
@@ -184,14 +186,18 @@ const App = () => {
     }
 
     const wrapper = event.currentTarget
-    const rect = wrapper.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    const clickX = event.clientX - centerX
-    const clickY = event.clientY - centerY
-    const wrapperRadius = rect.width / 2
-    const normalizedX = clickX / wrapperRadius
-    const normalizedY = clickY / wrapperRadius
+    const svg = wrapper.querySelector('svg')
+    if (!svg) return
+    
+    // Get click position in SVG coordinates
+    const pt = svg.createSVGPoint()
+    pt.x = event.clientX
+    pt.y = event.clientY
+    const svgP = pt.matrixTransform(svg.getScreenCTM()?.inverse())
+    
+    // Convert SVG coordinates to normalized (-1 to 1) where dartboard center (50,50) maps to (0,0)
+    const normalizedX = (svgP.x - 50) / 50
+    const normalizedY = (svgP.y - 50) / 50
     const score = calculateScore(normalizedX, normalizedY)
     
     const shot: Shot = {
@@ -326,20 +332,46 @@ const App = () => {
     return Math.floor(base / 4)
   }
 
+  const getSectionKey = (target: TargetSpot): string => {
+    if (target.type === 'bullseye') return 'bullseye'
+    if (target.type === 'outer-bull') return 'outer-bull'
+    return `${target.type}-${target.number}`
+  }
+
+  const updateTrainingAccuracy = (target: TargetSpot, hit: boolean) => {
+    // Track every attempt: if you have 3 shots at single-20 and hit on 2nd try,
+    // that's 2 attempts (1 miss + 1 hit) with 1 hit = 50% for this target
+    const sectionKey = getSectionKey(target)
+    setTrainingAccuracy(prev => {
+      const sections = { ...prev.sections }
+      const current = sections[sectionKey] || { attempts: 0, hits: 0 }
+      sections[sectionKey] = {
+        attempts: current.attempts + 1,
+        hits: current.hits + (hit ? 1 : 0)
+      }
+      return { sections }
+    })
+  }
+
   const handleTrainingTargetClick = (event: MouseEvent<HTMLDivElement>) => {
     if (!currentTarget || trainingAttemptsLeft === 0) return
 
     const wrapper = event.currentTarget
-    const rect = wrapper.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    const clickX = event.clientX - centerX
-    const clickY = event.clientY - centerY
-    const wrapperRadius = rect.width / 2
-    const normalizedX = clickX / wrapperRadius
-    const normalizedY = clickY / wrapperRadius
+    const svg = wrapper.querySelector('svg')
+    if (!svg) return
+    
+    // Get click position in SVG coordinates
+    const pt = svg.createSVGPoint()
+    pt.x = event.clientX
+    pt.y = event.clientY
+    const svgP = pt.matrixTransform(svg.getScreenCTM()?.inverse())
+    
+    // Convert SVG coordinates to normalized (-1 to 1) where dartboard center (50,50) maps to (0,0)
+    const normalizedX = (svgP.x - 50) / 50
+    const normalizedY = (svgP.y - 50) / 50
     const score = calculateScore(normalizedX, normalizedY)
     
+    // Allow shots outside the dartboard in training mode (they count as misses)
     const shot: Shot = {
       x: normalizedX,
       y: normalizedY,
@@ -352,6 +384,9 @@ const App = () => {
 
     const hitTarget = checkIfHitTarget(shot, currentTarget)
     const attemptNumber = 4 - trainingAttemptsLeft
+
+    // Update accuracy tracking - count this attempt
+    updateTrainingAccuracy(currentTarget, hitTarget)
 
     if (hitTarget) {
       // Hit the target! Award points
@@ -414,6 +449,26 @@ const App = () => {
   const handleTrainingUndoShot = () => {
     if (currentSpotShots.length === 0) return
     
+    // Get the last shot to check if it was a hit
+    const lastShot = currentSpotShots[currentSpotShots.length - 1]
+    if (lastShot && currentTarget) {
+      const wasHit = checkIfHitTarget(lastShot, currentTarget)
+      
+      // Reverse the accuracy tracking
+      const sectionKey = getSectionKey(currentTarget)
+      setTrainingAccuracy(prev => {
+        const sections = { ...prev.sections }
+        const current = sections[sectionKey]
+        if (current && current.attempts > 0) {
+          sections[sectionKey] = {
+            attempts: current.attempts - 1,
+            hits: current.hits - (wasHit ? 1 : 0)
+          }
+        }
+        return { sections }
+      })
+    }
+    
     setCurrentSpotShots(prev => prev.slice(0, -1))
     setAllTrainingShots(prev => prev.slice(0, -1))
     setTrainingAttemptsLeft(prev => Math.min(prev + 1, 3))
@@ -465,6 +520,7 @@ const App = () => {
       shots: allTrainingShots,
       totalScore: trainingScore,
       gameMode: 'training',
+      trainingAccuracy,
     }
 
     try {
@@ -615,6 +671,7 @@ const App = () => {
       onConfirmTurn={handleConfirmTurn}
       currentTurnNumber={competitionTurns.length + 1}
       canConfirmTurn={canConfirmCompetitionTurn}
+      trainingGames={games}
     />
   )
 
@@ -652,7 +709,7 @@ const App = () => {
 
   const statsView = (
     <div className="stats-page">
-      <StatsView rounds={gamesAsRounds} userId={user?.uid ?? ''} onDeleteRound={handleDeleteGame} />
+      <StatsView rounds={gamesAsRounds} userId={user?.uid ?? ''} onDeleteRound={handleDeleteGame} games={games} />
     </div>
   )
 

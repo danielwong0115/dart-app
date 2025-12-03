@@ -21,6 +21,7 @@ export type Game = {
   gameMode?: 'competition' | 'training'
   turns?: Turn[] // For competition mode
   startingScore?: number // For competition mode
+  trainingAccuracy?: TrainingAccuracyData // For training mode
 }
 
 export type StoredTurn = {
@@ -38,6 +39,22 @@ export type StoredGame = {
   gameMode?: 'competition' | 'training'
   turns?: StoredTurn[]
   startingScore?: number
+  trainingAccuracy?: TrainingAccuracyData
+}
+
+// Accuracy tracking for training mode
+export type DartboardSection = {
+  type: 'single' | 'double' | 'triple' | 'bullseye' | 'outer-bull'
+  number: number // 1-20 for segments, 25 for outer-bull, 50 for bullseye
+}
+
+export type SectionAccuracy = {
+  attempts: number
+  hits: number
+}
+
+export type TrainingAccuracyData = {
+  sections: Record<string, SectionAccuracy> // key: "single-20", "double-5", "triple-18", etc.
 }
 
 export type StoredShot = {

@@ -1,10 +1,11 @@
-import type { Round } from '../../utils/types'
+import type { Round, Game } from '../../utils/types'
 import { PracticeCard } from './PracticeCard'
 
 export interface PracticeEntry {
   round: Round
   practiceNumber: number
   formattedDate: string
+  game?: Game
 }
 
 interface PracticeListProps {
@@ -27,6 +28,7 @@ export const PracticeList = ({ entries, onRequestDelete, onSaveNotes, pendingDel
         onSaveNotes={onSaveNotes}
         isDeleting={isDeleting}
         isDeletePending={pendingDeleteId === entry.round.id}
+        game={entry.game}
       />
     ))}
   </>

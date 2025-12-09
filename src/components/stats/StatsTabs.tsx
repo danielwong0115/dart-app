@@ -1,4 +1,4 @@
-export type StatsTab = 'history' | 'aggregate'
+export type StatsTab = 'history' | 'aggregate' | 'tendency'
 
 interface StatsTabsProps {
   activeTab: StatsTab
@@ -20,6 +20,13 @@ export const StatsTabs = ({ activeTab, onTabChange }: StatsTabsProps) => (
       type="button"
     >
       Aggregate Stats
+    </button>
+    <button
+      className={`stats-tab ${activeTab === 'tendency' ? 'stats-tab--active' : ''}`}
+      onClick={() => onTabChange('tendency')}
+      type="button"
+    >
+      Shot Tendencies
     </button>
   </div>
 )

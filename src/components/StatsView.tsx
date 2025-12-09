@@ -10,6 +10,7 @@ import { DeletePracticeModal } from './stats/DeletePracticeModal'
 import { AccuracyDartboard } from './stats/AccuracyDartboard'
 import { AccuracyTimelineChart } from './stats/AccuracyTimelineChart'
 import { TrainingAccuracyChart } from './stats/TrainingAccuracyChart'
+import { ShotTendencyView } from './stats/ShotTendencyView'
 
 interface StatsViewProps {
   rounds: Round[]
@@ -293,6 +294,8 @@ export const StatsView = ({ rounds, userId, onDeleteRound, games = [] }: StatsVi
             <DartAccuracyMetrics games={games} />
           </div>
         </div>
+      ) : activeTab === 'tendency' ? (
+        <ShotTendencyView games={games} />
       ) : (
         <div className="stats-history">
           <TrainingAccuracyChart games={games} />

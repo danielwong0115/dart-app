@@ -338,16 +338,17 @@ const App = () => {
     return `${target.type}-${target.number}`
   }
 
-  const updateTrainingAccuracy = (target: TargetSpot, hit: boolean) => {
+  const updateTrainingAccuracy = (target: TargetSpot, hit: boolean, shot: Shot) => {
     // Track every attempt: if you have 3 shots at single-20 and hit on 2nd try,
     // that's 2 attempts (1 miss + 1 hit) with 1 hit = 50% for this target
     const sectionKey = getSectionKey(target)
     setTrainingAccuracy(prev => {
       const sections = { ...prev.sections }
-      const current = sections[sectionKey] || { attempts: 0, hits: 0 }
+      const current = sections[sectionKey] || { attempts: 0, hits: 0, missedShots: [] }
       sections[sectionKey] = {
         attempts: current.attempts + 1,
-        hits: current.hits + (hit ? 1 : 0)
+        hits: current.hits + (hit ? 1 : 0),
+        missedShots: hit ? current.missedShots : [...(current.missedShots || []), shot]
       }
       return { sections }
     })
@@ -386,7 +387,7 @@ const App = () => {
     const attemptNumber = 4 - trainingAttemptsLeft
 
     // Update accuracy tracking - count this attempt
-    updateTrainingAccuracy(currentTarget, hitTarget)
+    updateTrainingAccuracy(currentTarget, hitTarget, shot)
 
     if (hitTarget) {
       // Hit the target! Award points

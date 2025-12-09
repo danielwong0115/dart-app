@@ -51,10 +51,31 @@ export type DartboardSection = {
 export type SectionAccuracy = {
   attempts: number
   hits: number
+  missedShots?: Shot[] // Store actual shot positions for miss analysis
 }
 
 export type TrainingAccuracyData = {
   sections: Record<string, SectionAccuracy> // key: "single-20", "double-5", "triple-18", etc.
+}
+
+export type ShotTendency = {
+  targetSection: string
+  targetDisplayName: string
+  attempts: number
+  hits: number
+  hitRate: number
+  directionalBias: {
+    tooHigh: number
+    tooLow: number
+    tooLeft: number
+    tooRight: number
+  }
+  commonMisses: Array<{
+    section: string
+    displayName: string
+    count: number
+    percentage: number
+  }>
 }
 
 export type StoredShot = {

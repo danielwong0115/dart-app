@@ -58,6 +58,19 @@ export type TrainingAccuracyData = {
   sections: Record<string, SectionAccuracy> // key: "single-20", "double-5", "triple-18", etc.
 }
 
+// Microbit release timing data
+export type ReleaseTimingEntry = {
+  time: number // Time in seconds
+  throwCount: number
+  releaseTiming: 0 | 1 | 2 // 0 = early, 1 = on time, 2 = late
+  releaseAngle: number // Angle from CSV (actual angle = 90 - this value)
+}
+
+export type ReleaseTimingData = {
+  entries: ReleaseTimingEntry[]
+  uploadedAt: string
+}
+
 export type ShotTendency = {
   targetSection: string
   targetDisplayName: string

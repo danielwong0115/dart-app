@@ -1,8 +1,10 @@
 import { useState, type FC } from 'react'
-import type { Game } from '../../utils/types'
+import type { Game, ReleaseTimingEntry, ReleaseTimingData } from '../../utils/types'
 import { analyzeShotTendencies } from '../../utils/shotTendencyAnalysis'
 import { ShotTendencyCard } from './ShotTendencyCard'
 import { ShotTendencyDartboard } from './ShotTendencyDartboard'
+import { MicrobitUpload } from './MicrobitUpload'
+import { ReleaseTimingStats } from './ReleaseTimingStats'
 
 interface ShotTendencyViewProps {
   games: Game[]
@@ -10,7 +12,15 @@ interface ShotTendencyViewProps {
 
 export const ShotTendencyView: FC<ShotTendencyViewProps> = ({ games }) => {
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
+  const [releaseTimingData, setReleaseTimingData] = useState<ReleaseTimingData | null>(null)
   const tendencies = analyzeShotTendencies(games)
+  
+  const handleCSVUpload = (entries: ReleaseTimingEntry[]) => {
+    setReleaseTimingData({
+      entries,
+      uploadedAt: new Date().toISOString()
+    })
+  }
   
   if (tendencies.length === 0) {
     return (
@@ -50,6 +60,20 @@ export const ShotTendencyView: FC<ShotTendencyViewProps> = ({ games }) => {
           <p>No training data yet for this target. Practice this spot to see your shooting patterns!</p>
         </div>
       )}
+
+      {/* Microbit Release Timing Section */}
+      <div className="shot-tendency-view__release-section">
+        <div className="shot-tendency-view__release-header">
+          <h3 className="shot-tendency-view__release-title">Microbit Release Timing Analysis</h3>
+          <p className="shot-tendency-view__release-description">
+            Upload CSV data from your Microbit device to analyze your dart release timing patterns
+          </p>
+        </div>
+        
+        <MicrobitUpload onUpload={handleCSVUpload} />
+        
+        <ReleaseTimingStats releaseData={releaseTimingData} />
+      </div>
     </div>
   )
 }

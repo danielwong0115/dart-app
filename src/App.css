@@ -3390,3 +3390,249 @@ button {
   }
 }
 
+/* Release Timing Section Styles */
+.shot-tendency-view__release-section {
+  margin-top: 40px;
+  padding-top: 40px;
+  border-top: 2px solid rgba(226, 232, 240, 0.2);
+}
+
+.shot-tendency-view__release-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.shot-tendency-view__release-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fefefe;
+}
+
+.shot-tendency-view__release-description {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(254, 254, 254, 0.7);
+}
+
+/* Microbit Upload Styles */
+.microbit-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.microbit-upload__input {
+  display: none;
+}
+
+.microbit-upload__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.2), rgba(99, 102, 241, 0.1));
+  border: 2px solid rgba(79, 70, 229, 0.4);
+  border-radius: 12px;
+  color: #fefefe;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.microbit-upload__button:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.3), rgba(99, 102, 241, 0.15));
+  border-color: rgba(79, 70, 229, 0.6);
+  transform: translateY(-1px);
+}
+
+.microbit-upload__button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.microbit-upload__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.microbit-upload__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 14px;
+}
+
+.microbit-upload__success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  color: #86efac;
+  font-size: 14px;
+}
+
+/* Release Timing Stats Styles */
+.release-timing-empty {
+  padding: 24px;
+  text-align: center;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px dashed rgba(226, 232, 240, 0.3);
+  border-radius: 12px;
+  color: rgba(254, 254, 254, 0.6);
+}
+
+.release-timing-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(226, 232, 240, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.release-timing-stats__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fefefe;
+  text-align: center;
+}
+
+.release-timing-stats__subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(254, 254, 254, 0.7);
+  text-align: center;
+}
+
+.release-timing-stats__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 2px solid;
+  border-radius: 12px;
+}
+
+.release-timing-stats__tendency {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.release-timing-stats__angles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.release-timing-stats__angle {
+  margin: 0;
+  font-size: 15px;
+  color: rgba(254, 254, 254, 0.85);
+  text-align: center;
+}
+
+.release-timing-stats__angle-detail {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(254, 254, 254, 0.6);
+  text-align: center;
+  font-style: italic;
+}
+
+.release-timing-stats__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.release-timing-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.release-timing-bar__label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.release-timing-bar__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #cbd5f5;
+}
+
+.release-timing-bar__value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fefefe;
+}
+
+.release-timing-bar__track {
+  height: 12px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.release-timing-bar__fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.6s ease;
+}
+
+.release-timing-bar__count {
+  font-size: 12px;
+  color: rgba(254, 254, 254, 0.6);
+}
+
+.release-timing-stats__footer {
+  padding-top: 12px;
+  border-top: 1px solid rgba(226, 232, 240, 0.2);
+}
+
+.release-timing-stats__info {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(254, 254, 254, 0.7);
+  text-align: center;
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .release-timing-stats {
+    padding: 20px 16px;
+  }
+  
+  .release-timing-stats__title {
+    font-size: 18px;
+  }
+  
+  .release-timing-stats__tendency {
+    font-size: 16px;
+  }
+  
+  .shot-tendency-view__release-title {
+    font-size: 20px;
+  }
+}
